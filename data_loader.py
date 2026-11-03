@@ -85,6 +85,65 @@ def normalise_columns(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+class UploadError(ValueError):
+    """An uploaded CSV cannot be evaluated; the message is shown to the user."""
+
+
+def validate_upload(df: pd.DataFrame):
+    """Check an uploaded test CSV and return (X, y, infos, warnings).
+
+    Raises UploadError for problems the user has to fix in the file. The
+    saved pipelines have no imputer, so missing or non-numeric values are
+    rejected rather than guessed.
+    """
+    if len(df) == 0:
+        raise UploadError("The file has a header but no data rows.")
+
+    df = normalise_columns(df)
+    infos, warnings = [], []
+
+    if TARGET not in df.columns:
+        raise UploadError(
+            f"Column '{TARGET}' is missing. The app needs the true labels to compute metrics."
+        )
+
+    missing = [c for c in FEATURE_COLS if c not in df.columns]
+    if missing:
+        raise UploadError(
+            f"{len(missing)} required feature column(s) missing: " + ", ".join(missing)
+        )
+
+    extra = [c for c in df.columns if c not in FEATURE_COLS and c != TARGET]
+    if extra:
+        infos.append("Ignored extra column(s): " + ", ".join(extra))
+
+    X = df[FEATURE_COLS].apply(pd.to_numeric, errors="coerce")
+    bad_cols = X.columns[X.isna().any()].tolist()
+    if bad_cols:
+        n_rows = int(X.isna().any(axis=1).sum())
+        raise UploadError(
+            f"{n_rows} row(s) have empty or non-numeric values in: {', '.join(bad_cols)}. "
+            "The models have no imputer, so please clean these rows first."
+        )
+
+    y = df[TARGET].astype(str).str.strip()
+    unknown = sorted(set(y) - set(CLASSES))
+    if unknown:
+        raise UploadError(
+            f"Unknown label(s) in '{TARGET}': {', '.join(unknown)}. "
+            f"Expected only: {', '.join(CLASSES)}."
+        )
+
+    absent = [c for c in CLASSES if c not in set(y)]
+    if absent:
+        warnings.append(
+            f"No rows with label {', '.join(absent)}: AUC is shown as n/a; "
+            "the other metrics are still macro averages over all three classes."
+        )
+
+    return X, y, infos, warnings
+
+
 def load_raw(cache_dir: str | Path = "data/raw") -> pd.DataFrame:
     """Load the full dataset (4,424 rows), downloading the UCI zip on first use."""
     cache_dir = Path(cache_dir)

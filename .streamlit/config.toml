@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#1f6f8b"
+
+[server]
+# Uploads are small CSVs; 10 MB is plenty and keeps the app responsive.
+maxUploadSize = 10

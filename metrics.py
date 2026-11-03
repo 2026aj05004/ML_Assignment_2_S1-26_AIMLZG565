@@ -85,8 +85,13 @@ def confusion_matrix_figure(y_true, y_pred, classes, title: str = ""):
 
 
 def classification_report_frame(y_true, y_pred, classes) -> pd.DataFrame:
-    """Per-class precision / recall / F1 / support as a DataFrame."""
+    """Per-class precision / recall / F1 / support, plus macro and weighted averages."""
     report = classification_report(
         y_true, y_pred, labels=list(classes), output_dict=True, zero_division=0
     )
-    return pd.DataFrame(report).T.round(3)
+    # The "accuracy" entry is a single number that pandas would repeat across every
+    # column (including support), so it is dropped; accuracy has its own metric card.
+    report.pop("accuracy", None)
+    frame = pd.DataFrame(report).T.round(3)
+    frame["support"] = frame["support"].astype(int)
+    return frame
