@@ -1,0 +1,119 @@
+{
+  "dataset": "UCI #697 Predict Students' Dropout and Academic Success",
+  "target": "Target",
+  "classes": [
+    "Dropout",
+    "Enrolled",
+    "Graduate"
+  ],
+  "feature_columns": [
+    "Marital status",
+    "Application mode",
+    "Course",
+    "Previous qualification",
+    "Nacionality",
+    "Mother's qualification",
+    "Father's qualification",
+    "Mother's occupation",
+    "Father's occupation",
+    "Application order",
+    "Daytime/evening attendance",
+    "Previous qualification (grade)",
+    "Admission grade",
+    "Displaced",
+    "Educational special needs",
+    "Debtor",
+    "Tuition fees up to date",
+    "Gender",
+    "Scholarship holder",
+    "Age at enrollment",
+    "International",
+    "Curricular units 1st sem (credited)",
+    "Curricular units 1st sem (enrolled)",
+    "Curricular units 1st sem (evaluations)",
+    "Curricular units 1st sem (approved)",
+    "Curricular units 1st sem (grade)",
+    "Curricular units 1st sem (without evaluations)",
+    "Curricular units 2nd sem (credited)",
+    "Curricular units 2nd sem (enrolled)",
+    "Curricular units 2nd sem (evaluations)",
+    "Curricular units 2nd sem (approved)",
+    "Curricular units 2nd sem (grade)",
+    "Curricular units 2nd sem (without evaluations)",
+    "Unemployment rate",
+    "Inflation rate",
+    "GDP"
+  ],
+  "nominal_columns": [
+    "Marital status",
+    "Application mode",
+    "Course",
+    "Previous qualification",
+    "Nacionality",
+    "Mother's qualification",
+    "Father's qualification",
+    "Mother's occupation",
+    "Father's occupation"
+  ],
+  "numeric_columns": [
+    "Application order",
+    "Daytime/evening attendance",
+    "Previous qualification (grade)",
+    "Admission grade",
+    "Displaced",
+    "Educational special needs",
+    "Debtor",
+    "Tuition fees up to date",
+    "Gender",
+    "Scholarship holder",
+    "Age at enrollment",
+    "International",
+    "Curricular units 1st sem (credited)",
+    "Curricular units 1st sem (enrolled)",
+    "Curricular units 1st sem (evaluations)",
+    "Curricular units 1st sem (approved)",
+    "Curricular units 1st sem (grade)",
+    "Curricular units 1st sem (without evaluations)",
+    "Curricular units 2nd sem (credited)",
+    "Curricular units 2nd sem (enrolled)",
+    "Curricular units 2nd sem (evaluations)",
+    "Curricular units 2nd sem (approved)",
+    "Curricular units 2nd sem (grade)",
+    "Curricular units 2nd sem (without evaluations)",
+    "Unemployment rate",
+    "Inflation rate",
+    "GDP"
+  ],
+  "model_files": {
+    "Logistic Regression": "logistic_regression.joblib",
+    "Decision Tree": "decision_tree.joblib",
+    "K-Nearest Neighbors": "knn.joblib",
+    "Naive Bayes (Gaussian)": "naive_bayes.joblib",
+    "SVM (RBF kernel)": "svm.joblib"
+  },
+  "best_params": {
+    "Logistic Regression": {
+      "C": 0.1
+    },
+    "Decision Tree": {
+      "max_depth": 6,
+      "min_samples_leaf": 1
+    },
+    "K-Nearest Neighbors": {
+      "n_neighbors": 5,
+      "weights": "distance"
+    },
+    "Naive Bayes (Gaussian)": {
+      "var_smoothing": 0.001
+    },
+    "SVM (RBF kernel)": {
+      "C": 1
+    }
+  },
+  "seed": 42,
+  "test_size": 0.2,
+  "cv": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+  "tuning_scoring": "f1_macro",
+  "primary_metric": "F1",
+  "sklearn_version": "1.9.1"
+}
