@@ -12,6 +12,7 @@ import zipfile
 from pathlib import Path
 
 import certifi
+import numpy as np
 import pandas as pd
 
 DATA_URL = (
@@ -89,12 +90,16 @@ class UploadError(ValueError):
     """An uploaded CSV cannot be evaluated; the message is shown to the user."""
 
 
-def validate_upload(df: pd.DataFrame):
+def validate_upload(df: pd.DataFrame, known_categories: dict | None = None):
     """Check an uploaded test CSV and return (X, y, infos, warnings).
 
     Raises UploadError for problems the user has to fix in the file. The
     saved pipelines have no imputer, so missing or non-numeric values are
     rejected rather than guessed.
+
+    known_categories (column -> codes seen in training) lets us tell the user
+    about category codes the one-hot encoder has never seen; it encodes them
+    as all zeros, so the model still predicts but with less information.
     """
     if len(df) == 0:
         raise UploadError("The file has a header but no data rows.")
@@ -118,14 +123,19 @@ def validate_upload(df: pd.DataFrame):
         infos.append("Ignored extra column(s): " + ", ".join(extra))
 
     X = df[FEATURE_COLS].apply(pd.to_numeric, errors="coerce")
-    bad_cols = X.columns[X.isna().any()].tolist()
+    # NaN = empty or non-numeric; +-inf comes from values like "inf" or 1e400.
+    invalid = X.isna() | np.isinf(X)
+    bad_cols = X.columns[invalid.any()].tolist()
     if bad_cols:
-        n_rows = int(X.isna().any(axis=1).sum())
+        n_rows = int(invalid.any(axis=1).sum())
         raise UploadError(
-            f"{n_rows} row(s) have empty or non-numeric values in: {', '.join(bad_cols)}. "
-            "The models have no imputer, so please clean these rows first."
+            f"{n_rows} row(s) have empty, non-numeric or infinite values in: "
+            f"{', '.join(bad_cols)}. The models have no imputer, so please clean these "
+            "rows first. (Numbers must use '.' as the decimal point.)"
         )
 
+    if df[TARGET].isna().any():
+        raise UploadError(f"{int(df[TARGET].isna().sum())} row(s) have an empty '{TARGET}'.")
     y = df[TARGET].astype(str).str.strip()
     unknown = sorted(set(y) - set(CLASSES))
     if unknown:
@@ -134,11 +144,23 @@ def validate_upload(df: pd.DataFrame):
             f"Expected only: {', '.join(CLASSES)}."
         )
 
-    absent = [c for c in CLASSES if c not in set(y)]
-    if absent:
+    if known_categories:
+        unseen = {c: int((~X[c].isin(known_categories[c])).sum()) for c in known_categories}
+        unseen = {c: n for c, n in unseen.items() if n}
+        if unseen:
+            infos.append(
+                "Category codes not seen in training (encoded as 'unknown', so the model "
+                "uses the other features for these rows): "
+                + ", ".join(f"{c} ({n} row(s))" for c, n in unseen.items())
+            )
+
+    present = [c for c in CLASSES if c in set(y)]
+    if len(present) < len(CLASSES):
+        absent = [c for c in CLASSES if c not in present]
         warnings.append(
-            f"No rows with label {', '.join(absent)}: AUC is shown as n/a; "
-            "the other metrics are still macro averages over all three classes."
+            f"No rows with label {', '.join(absent)}: AUC is shown as n/a. Precision, "
+            "Recall and F1 are still macro averages over all three classes, so the absent "
+            f"class counts as 0 and their maximum here is {len(present) / len(CLASSES):.3f}."
         )
 
     return X, y, infos, warnings

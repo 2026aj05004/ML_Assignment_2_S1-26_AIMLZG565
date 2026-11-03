@@ -69,15 +69,15 @@ Dropout and Academic Success* [Dataset]. UCI Machine Learning Repository.
 <https://github.com/2026aj05004/ML_Assignment_2_S1-26_AIMLZG565>
 
 ```
-app.py               Streamlit app (the entry point on Streamlit Community Cloud)
-train.py             download data -> split -> tune and fit 5 pipelines -> save model/ and test_data.csv
-data_loader.py       download/cache the UCI file, tidy column names, column groups, upload checks
-metrics.py           the six metrics, confusion-matrix figure, classification report
-model/               5 saved pipelines (*.joblib), metadata.json, metrics.json
-test_data.csv        the 20% hold-out test set (885 rows, 36 features + Target)
-notebooks/           EDA and training walkthrough
-requirements.txt     pinned packages the app needs
-requirements-dev.txt adds Jupyter for the notebook
+app.py                Streamlit app (entry point on Streamlit Community Cloud)
+train.py              data -> split -> tune 5 pipelines -> save model/, test_data.csv
+data_loader.py        UCI download, column names and groups, upload checks
+metrics.py            six metrics, confusion-matrix figure, classification report
+model/                5 saved pipelines (*.joblib), metadata.json, metrics.json
+test_data.csv         20% hold-out test set (885 rows, 36 features + Target)
+notebooks/            EDA and training walkthrough
+requirements.txt      pinned packages the app needs
+requirements-dev.txt  adds Jupyter for the notebook
 ```
 
 ## d. Models used
@@ -147,7 +147,7 @@ Hold-out confusion matrices (rows = actual, columns = predicted, order Dropout /
 ### Observations
 
 | ML Model Name | Observation about model performance |
-|---|---|
+|------|------------------------------|
 | Logistic Regression | Best macro F1 (0.701) and best AUC (0.884), so its probabilities rank students best. Class weighting makes it predict Enrolled generously: Enrolled recall 0.67 but precision only 0.43 (140 Dropout or Graduate students labelled Enrolled). It misses only 24 of 284 dropouts as Graduate (8%), joint fewest with the Decision Tree. Its 5-fold CV F1 (0.714) is close to the hold-out F1, so the result is stable. |
 | Decision Tree | A depth-6 tree, the most over-predicting of Enrolled: it labels 332 students Enrolled, including 134 actual graduates. Graduate recall therefore falls to 0.65 and accuracy to 0.649, the second-lowest. Class weighting plus coarse axis-aligned splits buys Enrolled recall (0.71, the highest) at a large cost elsewhere. |
 | kNN | Third-highest accuracy (0.710) but second-lowest macro F1 (0.622). This is the clearest case of accuracy misleading. With no class weighting, the majority Graduate class wins the neighbour votes: Enrolled recall is only 0.29 (46 of 159), with 81 Enrolled students predicted Graduate, while Graduate recall is 0.90. It also labels 65 dropouts (23%) as Graduate, the worst outcome for a support office. Distances are also computed over 236 inputs, 209 of them one-hot category columns, which likely dilutes the academic-progress signal. |
@@ -173,9 +173,12 @@ it separates "still studying" from either.
 - a **Compare all models** tab showing all five models on the same file, ranked by macro F1
 
 Uploads are checked before evaluation, and each problem gets a clear message: empty file,
-missing `Target` or feature columns, non-numeric or empty cells, unknown labels.
+missing `Target` or feature columns, non-numeric, empty or infinite cells, empty or unknown labels.
 If a file lacks one of the three classes, AUC is shown as *n/a* (one-vs-rest AUC needs every
-class), and the other metrics are still computed. Both `,` and `;` separators work, so a
+class). Precision, Recall and F1 stay macro averages over all three classes, so the absent class
+counts as 0: on a two-class file their maximum is 0.667, and the app says so. Category codes
+never seen in training (the hold-out itself has a few rare ones) are reported too; the one-hot
+encoder treats them as unknown and the model uses the remaining features. Both `,` and `;` separators work, so a
 raw UCI download can be uploaded directly. Note that a full UCI download contains the
 training rows too, so its scores are optimistic. Use `test_data.csv` for a fair evaluation.
 

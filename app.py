@@ -93,8 +93,12 @@ else:
         st.error(f"Could not read the file as CSV: {exc}")
         st.stop()
 
+# Codes the one-hot encoder learned in training (identical in all five pipelines).
+encoder = next(iter(models.values())).named_steps["prep"].named_transformers_["nominal"]
+known = dict(zip(encoder.feature_names_in_, encoder.categories_))
+
 try:
-    X, y, infos, warnings = validate_upload(raw)
+    X, y, infos, warnings = validate_upload(raw, known_categories=known)
 except UploadError as exc:
     st.error(str(exc))
     st.stop()
@@ -178,6 +182,7 @@ a prediction made *at the end of the first academic year*, not at admission.
 - **AUC**: macro-averaged one-vs-rest ROC AUC over the three classes, from predicted
   probabilities. Needs every class to be present; otherwise shown as n/a.
 - **Precision / Recall / F1**: macro averages, so each class counts equally regardless of size.
+  A class missing from the file counts as 0, which caps these at 0.667 with two classes present.
 - **MCC**: Matthews correlation coefficient (multiclass form); 0 = no better than chance, 1 = perfect.
 
 The primary comparison criterion, fixed before training, is **macro F1**.
