@@ -61,9 +61,10 @@ MODELS = {
         # An SVC outputs margins, not probabilities. Platt (sigmoid) calibration on
         # cross-validated margins gives the predict_proba that AUC needs; ensemble=False
         # keeps a single SVC refit on all training rows. (This replaces SVC(probability=True),
-        # deprecated in scikit-learn 1.9.)
+        # deprecated in scikit-learn 1.9.) No random_state: fitting an SVC this way is
+        # deterministic, and the calibration folds are unshuffled.
         CalibratedClassifierCV(
-            SVC(kernel="rbf", class_weight="balanced", random_state=SEED),
+            SVC(kernel="rbf", class_weight="balanced"),
             method="sigmoid", ensemble=False,
         ),
         {"clf__estimator__C": [0.5, 1, 5]},
