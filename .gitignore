@@ -1,0 +1,99 @@
+# ==============================================================
+# AI assistant files and configuration -- keep local, never publish
+# ==============================================================
+
+# Claude Code
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+.mcp.json
+
+# Planning / spec artifacts written by agent skills
+docs/superpowers/
+
+# OpenAI Codex and generic agent instruction files
+AGENTS.md
+.codex/
+.agent/
+.agents/
+.ai/
+
+# Gemini CLI
+GEMINI.md
+.gemini/
+
+# Cursor
+.cursor/
+.cursorrules
+.cursorignore
+.cursorindexingignore
+
+# Windsurf
+.windsurf/
+.windsurfrules
+
+# GitHub Copilot (specific paths only -- .github/workflows may be wanted)
+.github/copilot-instructions.md
+.github/instructions/
+.github/prompts/
+
+# Aider
+.aider*
+
+# Cline / Roo / Kilo
+.cline/
+.clinerules
+.roo/
+.roomodes
+.roorules
+.kilocode/
+
+# Continue, Kiro, Junie, Amazon Q, Cody
+.continue/
+.kiro/
+.junie/
+.amazonq/
+.cody/
+
+# ==============================================================
+# Python / Jupyter
+# ==============================================================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets (keep an .env.example if one is needed)
+.env
+.env.*
+!.env.example
+
+# ML experiment tracking output
+mlruns/
+wandb/
+lightning_logs/
+catboost_info/
+
+# Large model artifacts -- uncomment if the TAs should NOT get trained models
+# *.pkl
+# *.joblib
+# *.h5
+# *.pt
+# *.ckpt
+
+# ==============================================================
+# Editor / OS
+# ==============================================================
+.DS_Store
+*~
+.idea/
+.vscode/
+*.log
