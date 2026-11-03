@@ -107,6 +107,13 @@ def validate_upload(df: pd.DataFrame, known_categories: dict | None = None):
     df = normalise_columns(df)
     infos, warnings = [], []
 
+    # e.g. "Target" and "Target " both become "Target" after cleanup
+    dupes = sorted(set(df.columns[df.columns.duplicated()]))
+    if dupes:
+        raise UploadError(
+            "These columns appear more than once (after trimming spaces): " + ", ".join(dupes)
+        )
+
     if TARGET not in df.columns:
         raise UploadError(
             f"Column '{TARGET}' is missing. The app needs the true labels to compute metrics."
