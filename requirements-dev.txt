@@ -1,0 +1,5 @@
+# Local only (notebook). Streamlit Cloud installs requirements.txt.
+-r requirements.txt
+jupyter==1.1.1
+nbconvert==7.17.2
+ipykernel==7.4.0

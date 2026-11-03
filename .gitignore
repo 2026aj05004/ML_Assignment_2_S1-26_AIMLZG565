@@ -97,3 +97,11 @@ catboost_info/
 .idea/
 .vscode/
 *.log
+
+# ==============================================================
+# Project-specific
+# ==============================================================
+# Raw UCI download (train.py fetches it); only test_data.csv is committed
+data/raw/
+# Local submission-PDF kit (links, screenshot, generated PDF)
+submission/
