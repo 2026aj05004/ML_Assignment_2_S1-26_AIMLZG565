@@ -128,8 +128,8 @@ a model that rarely predicts Enrolled.
 |---|---|---|---|---|---|---|
 | Logistic Regression | 0.7367 | **0.8838** | **0.7094** | **0.7158** | **0.7014** | 0.5937 |
 | Decision Tree | 0.6486 | 0.8240 | 0.6660 | 0.6580 | 0.6314 | 0.4929 |
-| kNN | 0.7096 | 0.8013 | 0.6494 | 0.6130 | 0.6216 | 0.5147 |
-| Naive Bayes | 0.5842 | 0.7468 | 0.5499 | 0.5427 | 0.5395 | 0.3504 |
+| K-Nearest Neighbors | 0.7096 | 0.8013 | 0.6494 | 0.6130 | 0.6216 | 0.5147 |
+| Naive Bayes (Gaussian) | 0.5842 | 0.7468 | 0.5499 | 0.5427 | 0.5395 | 0.3504 |
 | SVM (RBF kernel) | **0.7480** | 0.8644 | 0.7022 | 0.7041 | 0.7012 | **0.5957** |
 
 (Source: `model/metrics.json`, written by `train.py`. Best value in each column in bold.)
@@ -140,8 +140,8 @@ Hold-out confusion matrices (rows = actual, columns = predicted, order Dropout /
 |---|---|---|---|
 | Logistic Regression | 195 / 65 / 24 | 25 / 106 / 28 | 16 / 75 / 351 |
 | Decision Tree | 175 / 85 / 24 | 20 / 113 / 26 | 22 / 134 / 286 |
-| kNN | 185 / 34 / 65 | 32 / 46 / 81 | 18 / 27 / 397 |
-| Naive Bayes | 153 / 94 / 37 | 25 / 66 / 68 | 62 / 82 / 298 |
+| K-Nearest Neighbors | 185 / 34 / 65 | 32 / 46 / 81 | 18 / 27 / 397 |
+| Naive Bayes (Gaussian) | 153 / 94 / 37 | 25 / 66 / 68 | 62 / 82 / 298 |
 | SVM (RBF kernel) | 210 / 44 / 30 | 31 / 87 / 41 | 17 / 60 / 365 |
 
 ### Observations
@@ -150,14 +150,14 @@ Hold-out confusion matrices (rows = actual, columns = predicted, order Dropout /
 |------|------------------------------|
 | Logistic Regression | Best macro F1 (0.701) and best AUC (0.884), so its probabilities rank students best. Class weighting makes it predict Enrolled generously: Enrolled recall 0.67 but precision only 0.43 (140 Dropout or Graduate students labelled Enrolled). It misses only 24 of 284 dropouts as Graduate (8%), joint fewest with the Decision Tree. Its 5-fold CV F1 (0.714) is close to the hold-out F1, so the result is stable. |
 | Decision Tree | A depth-6 tree, the most over-predicting of Enrolled: it labels 332 students Enrolled, including 134 actual graduates. Graduate recall therefore falls to 0.65 and accuracy to 0.649, the second-lowest. Class weighting plus coarse axis-aligned splits buys Enrolled recall (0.71, the highest) at a large cost elsewhere. |
-| kNN | Third-highest accuracy (0.710) but second-lowest macro F1 (0.622). This is the clearest case of accuracy misleading. With no class weighting, the majority Graduate class wins the neighbour votes: Enrolled recall is only 0.29 (46 of 159), with 81 Enrolled students predicted Graduate, while Graduate recall is 0.90. It also labels 65 dropouts (23%) as Graduate, the worst outcome for a support office. Distances are also computed over 236 inputs, 209 of them one-hot category columns, which likely dilutes the academic-progress signal. |
-| Naive Bayes | Lowest on every metric (F1 0.540, MCC 0.350). Its two assumptions are both broken here. Features are far from independent given the class: 1st- and 2nd-semester units approved correlate at 0.90, units enrolled at 0.94. And the 209 one-hot 0/1 columns are modelled as Gaussians. The largest smoothing value in the grid (1e-3) was chosen, which tempers the extreme likelihoods from near-constant one-hot columns but does not fix the assumptions. It confuses all three classes, including 62 graduates predicted as Dropout. |
+| K-Nearest Neighbors | Third-highest accuracy (0.710) but second-lowest macro F1 (0.622). This is the clearest case of accuracy misleading. With no class weighting, the majority Graduate class wins the neighbour votes: Enrolled recall is only 0.29 (46 of 159), with 81 Enrolled students predicted Graduate, while Graduate recall is 0.90. It also labels 65 dropouts (23%) as Graduate, the worst outcome for a support office. Distances are also computed over 236 inputs, 209 of them one-hot category columns, which likely dilutes the academic-progress signal. |
+| Naive Bayes (Gaussian) | Lowest on every metric (F1 0.540, MCC 0.350). Its two assumptions are both broken here. Features are far from independent given the class: 1st- and 2nd-semester units approved correlate at 0.90, units enrolled at 0.94. And the 209 one-hot 0/1 columns are modelled as Gaussians. The largest smoothing value in the grid (1e-3) was chosen, which tempers the extreme likelihoods from near-constant one-hot columns but does not fix the assumptions. It confuses all three classes, including 62 graduates predicted as Dropout. |
 | SVM (RBF kernel) | Effectively tied with Logistic Regression on macro F1 (0.7012 vs 0.7014), with the highest accuracy (0.748) and MCC (0.596). It catches the most dropouts (recall 0.74, 210 of 284) and over-predicts Enrolled less than the other weighted models (Enrolled precision 0.46). Its AUC (0.864) is lower than Logistic Regression's, so its calibrated probabilities rank students less well. Its saved file is also much larger (4.5 MB vs 14 KB). |
 
 **Conclusion.** On the primary criterion, Logistic Regression and the SVM are tied (a 0.0002
 difference in macro F1 is not meaningful on 885 rows). **Logistic Regression is the preferred
-model**: it has the better AUC and CV F1, misses as few dropouts as graduates as any model, and is far
-simpler and smaller. The trade-off is that the SVM is slightly more accurate overall and flags
+model**: it has the better AUC and CV F1, ties for the fewest dropouts mislabelled as Graduate
+(24 of 284), and is far simpler and smaller. The trade-off is that the SVM is slightly more accurate overall and flags
 more of the actual dropouts. All five models find **Enrolled** the hardest class (per-class F1
 0.33 to 0.52). The first-year data separates "will finish" from "will leave" much better than
 it separates "still studying" from either.
