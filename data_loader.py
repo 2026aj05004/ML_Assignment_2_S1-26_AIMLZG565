@@ -73,6 +73,24 @@ FEATURE_COLS = NOMINAL_COLS + NUMERIC_COLS
 # Friendlier names for messages; column names themselves stay as in the dataset.
 DISPLAY_NAMES = {"Nacionality": "Nationality"}
 
+# The five feature groups described in the README and the app.
+FEATURE_GROUPS = {
+    "Enrolment and background": [
+        "Marital status", "Application mode", "Application order", "Course",
+        "Daytime/evening attendance", "Previous qualification", "Previous qualification (grade)",
+        "Nacionality", "Admission grade", "Displaced", "Educational special needs", "Gender",
+        "Age at enrollment", "International",
+    ],
+    "Family": [
+        "Mother's qualification", "Father's qualification",
+        "Mother's occupation", "Father's occupation",
+    ],
+    "Financial": ["Debtor", "Tuition fees up to date", "Scholarship holder"],
+    "First-year results": [c for c in NUMERIC_COLS if c.startswith("Curricular units")],
+    "Economy": ["Unemployment rate", "Inflation rate", "GDP"],
+}
+assert sorted(sum(FEATURE_GROUPS.values(), [])) == sorted(FEATURE_COLS)
+
 
 def normalise_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Return a copy of df with tidy column names.
