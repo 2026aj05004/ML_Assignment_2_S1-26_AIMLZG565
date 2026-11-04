@@ -171,8 +171,10 @@ it separates "still studying" from either.
   outcome classes, when the prediction is made) and a **feature dictionary** explaining every
   column and code, taken from the UCI documentation
 - a **CSV upload** (or a checkbox to use the bundled `test_data.csv`)
-- a **model dropdown**
-- the **six metrics** for the chosen model
+- a **model dropdown**, with a plain-language description of each model (including what the
+  SVM's RBF kernel does) and of its tuned settings
+- the **six metrics** for the chosen model, each with a hover tooltip (ⓘ) explaining it for
+  non-specialists
 - the **confusion matrix** and **classification report**, with an option to show code
   meanings (e.g. *Nursing*) instead of numbers in the data preview
 - a **Compare all models** tab showing all five models on the same file, ranked by macro F1

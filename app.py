@@ -30,6 +30,53 @@ DICTIONARY_JSON = ROOT / "data" / "feature_dictionary.json"
 REPO_URL = "https://github.com/2026aj05004/ML_Assignment_2_S1-26_AIMLZG565"
 UCI_URL = "https://archive.ics.uci.edu/dataset/697/predict+students+dropout+and+academic+success"
 
+# Plain-language explanations, used for tooltips and the "How the metrics work" section.
+METRIC_HELP = {
+    "Accuracy": "Share of students whose outcome was predicted correctly. It can look good even "
+                "when a model mostly ignores the small Enrolled group.",
+    "AUC": "How well the model ranks students: 1 = perfect, 0.5 = no better than guessing. "
+           "Computed for each outcome against the other two, then averaged. Needs all three "
+           "outcomes in the file.",
+    "Precision": "Of the students the model put in an outcome group, the share that really "
+                 "belong there. Averaged over the three groups, each counting equally.",
+    "Recall": "Of the students who really belong to an outcome group, the share the model "
+              "found. Averaged over the three groups, each counting equally.",
+    "F1": "A single score balancing precision and recall (their harmonic mean), averaged over "
+          "the three groups. This is the main score used to compare the models.",
+    "MCC": "Matthews correlation coefficient: agreement between predicted and actual outcomes, "
+           "from -1 (always wrong) through 0 (no better than chance) to 1 (perfect). Stays "
+           "fair when the groups have very different sizes.",
+}
+
+MODEL_HELP = {
+    "Logistic Regression": "Gives each feature a weight and turns the weighted total into a "
+                           "probability for each outcome. Simple, fast and easy to explain.",
+    "Decision Tree": "Asks a sequence of yes/no questions about the features and predicts from "
+                     "the answers. The trained tree's first question is \"approved 4 or fewer "
+                     "units in semester 2?\"",
+    "K-Nearest Neighbors": "Finds the students in the training data most similar to this one "
+                           "and predicts the outcome most common among them.",
+    "Naive Bayes (Gaussian)": "Uses probability rules, assuming every feature is independent "
+                              "of the others and follows a bell curve within each outcome group. "
+                              "Fast, but those assumptions do not hold well here.",
+    "SVM (RBF kernel)": "A Support Vector Machine draws the boundary between outcome groups with "
+                        "the widest possible gap. The RBF (radial basis function) kernel lets that "
+                        "boundary curve, by judging how similar two students are from the "
+                        "distance between their feature values.",
+}
+
+PARAM_HELP = {
+    "C": "C: how closely the model fits the training data. Smaller values keep it simpler, "
+         "which helps it generalise to new students.",
+    "max_depth": "max_depth: the most yes/no questions the tree may ask in a row.",
+    "min_samples_leaf": "min_samples_leaf: the fewest training students allowed at the end "
+                        "of a branch.",
+    "n_neighbors": "n_neighbors: how many similar students are consulted.",
+    "weights": "weights = distance: closer (more similar) students count more.",
+    "var_smoothing": "var_smoothing: a small amount added to every spread estimate, so rare "
+                     "values do not produce extreme probabilities.",
+}
+
 st.set_page_config(page_title="Students' Dropout and Academic Success", layout="wide")
 
 
@@ -115,27 +162,19 @@ dictionary = load_dictionary()
 
 st.title("Predict Students' Dropout and Academic Success")
 st.caption(
-    "Five classifiers trained on UCI dataset #697 predict whether a university student will "
-    "**drop out**, **still be enrolled** or **graduate**. Check how they perform on labelled data."
+    "Five machine-learning models predict whether a university student will **drop out**, "
+    "**still be enrolled** or **graduate**. See how well each one does on real student records."
 )
 
 # ---------------------------------------------------------------- about (top of page)
 with st.expander("About the dataset", expanded=True):
-    st.markdown(
-        f"""
-**Why it exists.** The dataset comes from a project at a higher-education institution in
-Portugal that aimed to **reduce academic dropout and failure** by using machine learning to
-spot students at risk early in their studies, so that support could be put in place.
-Each row is one student, enrolled in degrees such as agronomy, design, education, nursing,
-journalism, management, social service and technologies. The data was combined from several
-separate institutional databases, cleaned of anomalies and outliers by its authors, and has
-**no missing values**. Source: [UCI dataset #697]({UCI_URL}) (CC BY 4.0).
-"""
-    )
     data_col, class_col, use_col = st.columns([5, 4, 4], gap="large")
     with data_col:
         st.markdown(
-            """
+            f"""
+**4,424 students** at a higher-education institution in Portugal, one row each, with no
+missing values ([UCI dataset #697]({UCI_URL}), CC BY 4.0).
+
 **36 features per student**, in five groups:
 - **Enrolment and background**: course, application mode and order, previous
   qualification and grade, admission grade, age, nationality, gender, ...
@@ -161,7 +200,7 @@ Many columns are numeric codes (for example `Course = 9500` is Nursing). The
 | Enrolled | 794 | 17.9% |
 | Graduate | 2,209 | 49.9% |
 
-*Enrolled* means still studying after the normal duration. It is the smallest class and
+*Enrolled* means still studying after the normal duration. It is the smallest group and
 the hardest to predict.
 """
         )
@@ -174,9 +213,9 @@ That still leaves time for a student-support office to contact students at risk.
 
 **Using this app**
 1. Pick a model in the sidebar.
-2. Keep the bundled `test_data.csv` (885 students held out from training, the 80/20
-   split the dataset's authors recommend), or upload your own labelled CSV.
-3. Read the metrics and confusion matrix, or compare all five models.
+2. Keep the bundled test file (885 students the models never saw during training), or
+   upload your own CSV with the same columns and a known outcome for each student.
+3. Read the scores and the confusion matrix, or compare all five models.
 """
         )
 
@@ -213,34 +252,45 @@ with st.expander("Feature dictionary: what every column means"):
         "unchanged."
     )
 
-with st.expander("How the metrics are defined"):
+with st.expander("How the scores work"):
     st.markdown(
-        f"""
-All metrics are computed on the rows you provide:
-- **Accuracy**: share of students whose outcome was predicted correctly.
-- **AUC**: macro-averaged one-vs-rest ROC AUC over the three classes, from predicted
-  probabilities. Needs every class to be present; otherwise shown as n/a.
-- **Precision / Recall / F1**: macro averages, so each class counts equally regardless of size.
-  A class missing from the file counts as 0, which caps these at 0.667 with two classes present.
-- **MCC**: Matthews correlation coefficient (multiclass form); 0 = no better than chance, 1 = perfect.
+        "All scores are computed on the students in the file you evaluate. Hover over the "
+        "ⓘ next to any score for the same explanation.\n\n"
+        + "\n".join(f"- **{name}**: {text}" for name, text in METRIC_HELP.items())
+        + f"""
 
-The primary comparison criterion, fixed before training, is **macro F1**.
+Precision, Recall and F1 are **macro averages**: each outcome group counts equally, however
+many students it has. If a file has no students in one group, that group scores 0, so these
+three cannot go above 0.667 with only two groups present.
 
-Models were trained once by `train.py` (scikit-learn {meta['sklearn_version']}); this app
-only loads them. Source code: [{REPO_URL}]({REPO_URL})
+**F1** was chosen as the main score before training, because accuracy alone would reward a
+model that rarely predicts *Enrolled*.
+
+The models were trained once by `train.py` (scikit-learn {meta['sklearn_version']}); this
+app only loads them and never retrains. Source code: [{REPO_URL}]({REPO_URL})
 """
     )
 
 # ---------------------------------------------------------------- sidebar
 with st.sidebar:
     st.header("1. Choose a model")
-    model_name = st.selectbox("Model", list(models))
-    st.caption(f"Tuned settings: `{meta['best_params'][model_name]}`")
+    model_name = st.selectbox(
+        "Model", list(models),
+        help="All five were trained on the same students and tuned the same way.",
+    )
+    st.caption(MODEL_HELP[model_name])
+    params = meta["best_params"][model_name]
+    st.caption(
+        "Tuned settings: " + ", ".join(f"`{k} = {v}`" for k, v in params.items()),
+        help="Chosen automatically by testing a few values on the training students.\n\n"
+             + "\n\n".join(PARAM_HELP[k] for k in params),
+    )
 
     st.header("2. Provide test data")
     use_bundled = st.checkbox(
         "Use bundled test_data.csv", value=True,
-        help="The stratified 20% hold-out saved by train.py (885 students).",
+        help="885 students (20% of the data) set aside before training, keeping the same mix "
+             "of outcomes. The models never saw them, so this is a fair test.",
     )
     uploaded = st.file_uploader(
         "...or upload your own CSV", type="csv", disabled=use_bundled,
@@ -287,33 +337,44 @@ tab_eval, tab_compare = st.tabs(["Evaluate selected model", "Compare all models"
 with tab_eval:
     st.subheader(f"{model_name} on {source_name}")
 
-    left, right = st.columns([3, 1])
-    with left:
-        st.markdown(f"**Preview** ({len(X)} rows)")
-        preview = X.assign(**{TARGET: y}).head(10)
-        if st.toggle("Show code meanings instead of numbers", value=True):
-            preview = decode(preview, dictionary)
-        st.dataframe(preview, hide_index=True)
-    with right:
-        st.markdown("**True class counts**")
-        counts = y.value_counts().reindex(CLASSES, fill_value=0).rename("rows")
-        st.dataframe(counts, width="stretch")
+    # Headings (and the toggle) share one row so the two tables below start level.
+    head_left, head_toggle, head_right = st.columns([2, 2, 2], vertical_alignment="center")
+    head_left.markdown(f"**Preview**: first 10 of {len(X)} students")
+    show_meanings = head_toggle.toggle("Show code meanings", value=True,
+                                       help="Show labels such as *Nursing* instead of codes such as 9500.")
+    head_right.markdown("**Actual outcomes** in this file")
+    left, right = st.columns([4, 2])
+    preview = X.assign(**{TARGET: y}).head(10)
+    left.dataframe(decode(preview, dictionary) if show_meanings else preview, hide_index=True)
+    counts = y.value_counts().reindex(CLASSES, fill_value=0).rename("Students")
+    right.dataframe(counts.rename_axis("Outcome"), width="stretch")
 
     y_pred, m = evaluate(models[model_name], X, y)
 
     cards = st.columns(len(METRIC_NAMES))
     for card, name in zip(cards, METRIC_NAMES):
-        help_text = m.get("auc_note") if name == "AUC" else None
+        help_text = METRIC_HELP[name]
+        if name == "AUC" and m["AUC"] is None:
+            help_text += f"\n\nNot available here: {m['auc_note']}."
         card.metric(name, fmt(m[name]), help=help_text, border=True)
     if m["AUC"] is None:
         st.caption(f"AUC n/a: {m['auc_note']}.")
 
     cm_col, report_col = st.columns(2)
     with cm_col:
-        st.markdown("**Confusion matrix**")
+        st.markdown(
+            "**Confusion matrix**",
+            help="Each cell counts students by their actual outcome (row) and the model's "
+                 "prediction (column). The diagonal holds the correct predictions.",
+        )
         st.altair_chart(confusion_matrix_chart(y, y_pred, CLASSES), width="stretch")
     with report_col:
-        st.markdown("**Classification report**")
+        st.markdown(
+            "**Scores per outcome group**",
+            help="precision, recall and f1-score for each group (see the score tooltips above); "
+                 "support = number of students actually in that group. *macro avg* weights every "
+                 "group equally (the cards above); *weighted avg* weights groups by size.",
+        )
         st.dataframe(classification_report_frame(y, y_pred, CLASSES))
 
     st.markdown(
@@ -335,9 +396,13 @@ with tab_compare:
     st.subheader(f"All five models on {source_name}")
     rows = {name: evaluate(model, X, y)[1] for name, model in models.items()}
     table = pd.DataFrame(rows).T[METRIC_NAMES]
-    st.dataframe(table.map(fmt), width="stretch")
+    st.dataframe(
+        table.map(fmt), width="stretch",
+        column_config={n: st.column_config.TextColumn(n, help=METRIC_HELP[n]) for n in METRIC_NAMES},
+    )
 
-    st.markdown("**Macro F1 (primary criterion)**")
+    st.markdown("**F1 by model** (the main score used to compare them)",
+                help=METRIC_HELP["F1"])
     f1 = table["F1"].astype(float).rename_axis("Model").reset_index()
     # horizontal=True swaps the axes, so x/y here still mean category/value.
     st.bar_chart(f1, x="Model", y="F1", horizontal=True, sort="-F1",
