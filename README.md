@@ -3,7 +3,7 @@
 ML Assignment 2: five classifiers compared on one public dataset, with an interactive
 Streamlit app that evaluates the saved models on an uploaded test file.
 
-- **Live app:** _add the Streamlit Community Cloud URL here after deployment_
+- **Live app:** <https://2026aj05004-aimlzg565-assignment-2.streamlit.app/>
 - **Repository:** <https://github.com/2026aj05004/ML_Assignment_2_S1-26_AIMLZG565>
 
 ---
