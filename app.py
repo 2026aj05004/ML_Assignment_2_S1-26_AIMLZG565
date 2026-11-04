@@ -95,13 +95,13 @@ def evaluate(model, X, y):
 
 
 def fmt(value):
-    return "n/a" if value is None else f"{value:.3f}"
+    return "n/a" if value is None else f"{value:.4f}"
 
 
 def best_model_sentence(f1: pd.Series) -> str:
     """Name the best model by macro F1, and say so when the runner-up is effectively tied.
 
-    The table shows 3 decimals, so two models can look identical; the sentence uses 4.
+    Scores differing by less than 0.001 are too close to rank, so they are called a tie.
     """
     ranked = f1.sort_values(ascending=False)
     (best, s1), (second, s2) = ranked.iloc[:2].items()
@@ -351,12 +351,14 @@ with tab_eval:
 
     y_pred, m = evaluate(models[model_name], X, y)
 
-    cards = st.columns(len(METRIC_NAMES))
-    for card, name in zip(cards, METRIC_NAMES):
-        help_text = METRIC_HELP[name]
-        if name == "AUC" and m["AUC"] is None:
-            help_text += f"\n\nNot available here: {m['auc_note']}."
-        card.metric(name, fmt(m[name]), help=help_text, border=True)
+    # Two rows of three so 4-decimal scores fit at laptop widths: overall scores first,
+    # then the per-group (macro) averages.
+    for row in (["Accuracy", "AUC", "MCC"], ["Precision", "Recall", "F1"]):
+        for card, name in zip(st.columns(3), row):
+            help_text = METRIC_HELP[name]
+            if name == "AUC" and m["AUC"] is None:
+                help_text += f"\n\nNot available here: {m['auc_note']}."
+            card.metric(name, fmt(m[name]), help=help_text, border=True)
     if m["AUC"] is None:
         st.caption(f"AUC n/a: {m['auc_note']}.")
 
@@ -375,7 +377,11 @@ with tab_eval:
                  "support = number of students actually in that group. *macro avg* weights every "
                  "group equally (the cards above); *weighted avg* weights groups by size.",
         )
-        st.dataframe(classification_report_frame(y, y_pred, CLASSES))
+        st.dataframe(
+            classification_report_frame(y, y_pred, CLASSES),
+            column_config={c: st.column_config.NumberColumn(c, format="%.4f")
+                           for c in ["precision", "recall", "f1-score"]},
+        )
 
     st.markdown(
         """

@@ -92,6 +92,6 @@ def classification_report_frame(y_true, y_pred, classes) -> pd.DataFrame:
     # The "accuracy" entry is a single number that pandas would repeat across every
     # column (including support), so it is dropped; accuracy has its own metric card.
     report.pop("accuracy", None)
-    frame = pd.DataFrame(report).T.round(3)
+    frame = pd.DataFrame(report).T.round(4)
     frame["support"] = frame["support"].astype(int)
     return frame
