@@ -49,6 +49,21 @@ def fmt(value):
     return "n/a" if value is None else f"{value:.3f}"
 
 
+def best_model_sentence(f1: pd.Series) -> str:
+    """Name the best model by macro F1, and say so when the runner-up is effectively tied.
+
+    The table shows 3 decimals, so two models can look identical; the sentence uses 4.
+    """
+    ranked = f1.sort_values(ascending=False)
+    (best, s1), (second, s2) = ranked.iloc[:2].items()
+    if s1 - s2 < 0.001:
+        return (
+            f"**{best}** ({s1:.4f}) and **{second}** ({s2:.4f}) are effectively tied on "
+            f"macro F1: the gap of {s1 - s2:.4f} is too small to call either better on this file."
+        )
+    return f"Best on this file by macro F1: **{best}** ({s1:.4f}), ahead of {second} ({s2:.4f})."
+
+
 meta, models = load_models()
 
 st.title("Student outcome classifier")
@@ -235,5 +250,4 @@ with tab_compare:
     st.bar_chart(f1, x="Model", y="F1", horizontal=True, sort="-F1",
                  x_label="", y_label="Macro F1")
 
-    best = table["F1"].astype(float).idxmax()
-    st.markdown(f"Best on this file by macro F1: **{best}** ({table.loc[best, 'F1']:.3f}).")
+    st.markdown(best_model_sentence(table["F1"].astype(float)))
