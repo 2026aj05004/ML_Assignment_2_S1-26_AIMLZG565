@@ -70,6 +70,9 @@ NUMERIC_COLS = [
 
 FEATURE_COLS = NOMINAL_COLS + NUMERIC_COLS
 
+# Friendlier names for messages; column names themselves stay as in the dataset.
+DISPLAY_NAMES = {"Nacionality": "Nationality"}
+
 
 def normalise_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Return a copy of df with tidy column names.
@@ -156,9 +159,10 @@ def validate_upload(df: pd.DataFrame, known_categories: dict | None = None):
         unseen = {c: n for c, n in unseen.items() if n}
         if unseen:
             infos.append(
-                "Category codes not seen in training (encoded as 'unknown', so the model "
-                "uses the other features for these rows): "
-                + ", ".join(f"{c} ({n} row(s))" for c, n in unseen.items())
+                "Some rows use category codes that never appeared in the training data ("
+                + ", ".join(f"{DISPLAY_NAMES.get(c, c)}: {n}" for c, n in unseen.items())
+                + " rows). The models treat an unseen code as 'unknown' and rely on the "
+                "other features for those rows. This is normal for rare categories."
             )
 
     present = [c for c in CLASSES if c in set(y)]

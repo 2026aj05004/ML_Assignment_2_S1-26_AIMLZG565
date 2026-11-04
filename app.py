@@ -26,6 +26,7 @@ ROOT = Path(__file__).parent
 MODEL_DIR = ROOT / "model"
 BUNDLED_CSV = ROOT / "test_data.csv"
 REPO_URL = "https://github.com/2026aj05004/ML_Assignment_2_S1-26_AIMLZG565"
+UCI_URL = "https://archive.ics.uci.edu/dataset/697/predict+students+dropout+and+academic+success"
 
 st.set_page_config(page_title="Student Outcome Classifier", layout="wide")
 
@@ -52,11 +53,78 @@ meta, models = load_models()
 
 st.title("Student outcome classifier")
 st.caption(
-    "Predicts whether a student will **drop out**, **still be enrolled** or **graduate** "
-    "at the end of the normal course duration, from enrolment data plus first- and "
-    "second-semester results (UCI dataset #697). Upload a labelled test file to see how "
-    "each saved model performs on it."
+    "Predicts whether a university student will **drop out**, **still be enrolled** or "
+    "**graduate**, and lets you check how five trained models perform on labelled data."
 )
+
+# ---------------------------------------------------------------- about (top of page)
+with st.expander("About the dataset", expanded=True):
+    data_col, class_col, use_col = st.columns([5, 3, 4], gap="large")
+    with data_col:
+        st.markdown(
+            f"""
+**What it is.** Records of **4,424 students** from a higher-education institution in
+Portugal, across degrees such as nursing, management, design, social service and
+agronomy ([UCI dataset #697]({UCI_URL}), CC BY 4.0).
+
+**36 features per student**, in five groups:
+- **Enrolment and background**: course, application mode, previous qualification,
+  admission grade, age, nationality, gender, ...
+- **Family**: each parent's qualification and occupation
+- **Financial**: tuition fees up to date, debtor, scholarship holder
+- **First-year results**: units enrolled, evaluated and approved, and the average grade,
+  for each of the two semesters
+- **Economy**: unemployment rate, inflation rate and GDP
+
+Most columns are numeric codes (for example `Course = 9500` is Nursing). The nationality
+column is spelled *Nacionality*, as in the original dataset, so raw UCI files work unchanged.
+"""
+        )
+    with class_col:
+        st.markdown("**What is predicted**: the outcome at the end of the normal course duration")
+        st.dataframe(
+            pd.DataFrame(
+                {"students": [1421, 794, 2209], "share": ["32.1%", "17.9%", "49.9%"]},
+                index=pd.Index(CLASSES, name="Outcome"),
+            ),
+            width="stretch",
+        )
+        st.caption(
+            "*Enrolled* means still studying after the normal duration. It is the smallest "
+            "class and the hardest to predict."
+        )
+    with use_col:
+        st.markdown(
+            """
+**When the prediction is made.** The features include first- and second-semester
+results, so this is a prediction **at the end of the first year**, not at admission.
+That still leaves time for a student-support office to contact students at risk.
+
+**Using this app**
+1. Pick a model in the sidebar.
+2. Keep the bundled `test_data.csv` (885 students held out from training), or upload
+   your own labelled CSV with the same columns.
+3. Read the metrics and confusion matrix, or compare all five models.
+"""
+        )
+
+with st.expander("How the metrics are defined"):
+    st.markdown(
+        f"""
+All metrics are computed on the rows you provide:
+- **Accuracy**: share of students whose outcome was predicted correctly.
+- **AUC**: macro-averaged one-vs-rest ROC AUC over the three classes, from predicted
+  probabilities. Needs every class to be present; otherwise shown as n/a.
+- **Precision / Recall / F1**: macro averages, so each class counts equally regardless of size.
+  A class missing from the file counts as 0, which caps these at 0.667 with two classes present.
+- **MCC**: Matthews correlation coefficient (multiclass form); 0 = no better than chance, 1 = perfect.
+
+The primary comparison criterion, fixed before training, is **macro F1**.
+
+Models were trained once by `train.py` (scikit-learn {meta['sklearn_version']}); this app
+only loads them. Source code: [{REPO_URL}]({REPO_URL})
+"""
+    )
 
 # ---------------------------------------------------------------- sidebar
 with st.sidebar:
@@ -169,25 +237,3 @@ with tab_compare:
 
     best = table["F1"].astype(float).idxmax()
     st.markdown(f"Best on this file by macro F1: **{best}** ({table.loc[best, 'F1']:.3f}).")
-
-# ---------------------------------------------------------------- about
-with st.expander("About this data and these metrics"):
-    st.markdown(
-        f"""
-**Prediction point.** The features include first- and second-semester results, so this is
-a prediction made *at the end of the first academic year*, not at admission.
-
-**Metrics** (computed on the rows you provide):
-- **Accuracy**: share of students whose outcome was predicted correctly.
-- **AUC**: macro-averaged one-vs-rest ROC AUC over the three classes, from predicted
-  probabilities. Needs every class to be present; otherwise shown as n/a.
-- **Precision / Recall / F1**: macro averages, so each class counts equally regardless of size.
-  A class missing from the file counts as 0, which caps these at 0.667 with two classes present.
-- **MCC**: Matthews correlation coefficient (multiclass form); 0 = no better than chance, 1 = perfect.
-
-The primary comparison criterion, fixed before training, is **macro F1**.
-
-Models were trained once by `train.py` (scikit-learn {meta['sklearn_version']}); this app
-only loads them. Source code: [{REPO_URL}]({REPO_URL})
-"""
-    )
