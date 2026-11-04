@@ -1,5 +1,10 @@
-[theme]
+# Separate light and dark themes: visitors get Streamlit's light/dark switch
+# (Settings menu, top right), and the default follows their system setting.
+[theme.light]
 primaryColor = "#1f6f8b"
+
+[theme.dark]
+primaryColor = "#5ab4d6"
 
 [server]
 # Uploads are small CSVs; 10 MB is plenty and keeps the app responsive.

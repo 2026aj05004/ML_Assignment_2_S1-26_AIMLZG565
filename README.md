@@ -74,6 +74,7 @@ train.py              data -> split -> tune 5 pipelines -> save model/, test_dat
 data_loader.py        UCI download, column names and groups, upload checks
 metrics.py            six metrics, confusion-matrix figure, classification report
 model/                5 saved pipelines (*.joblib), metadata.json, metrics.json
+data/                 feature_dictionary.json: UCI column descriptions and code meanings
 test_data.csv         20% hold-out test set (885 rows, 36 features + Target)
 notebooks/            EDA and training walkthrough
 requirements.txt      pinned packages the app needs
@@ -166,10 +167,14 @@ it separates "still studying" from either.
 
 `app.py` loads the five saved pipelines from `model/` and **never retrains**. It provides:
 
+- a **dataset overview** at the top (why the data exists, the five feature groups, the
+  outcome classes, when the prediction is made) and a **feature dictionary** explaining every
+  column and code, taken from the UCI documentation
 - a **CSV upload** (or a checkbox to use the bundled `test_data.csv`)
 - a **model dropdown**
 - the **six metrics** for the chosen model
-- the **confusion matrix** and **classification report**
+- the **confusion matrix** and **classification report**, with an option to show code
+  meanings (e.g. *Nursing*) instead of numbers in the data preview
 - a **Compare all models** tab showing all five models on the same file, ranked by macro F1
 
 Uploads are checked before evaluation, and each problem gets a clear message: empty file,
@@ -179,7 +184,8 @@ class). Precision, Recall and F1 stay macro averages over all three classes, so 
 counts as 0: on a two-class file their maximum is 0.667, and the app says so. Category codes
 never seen in training (the hold-out itself has a few rare ones) are reported too; the one-hot
 encoder treats them as unknown and the model uses the remaining features. Both `,` and `;` separators work, so a
-raw UCI download can be uploaded directly. Note that a full UCI download contains the
+raw UCI download can be uploaded directly. The app has light and dark themes; it follows the
+visitor's system setting, and the theme can be changed in the Settings menu (top right). Note that a full UCI download contains the
 training rows too, so its scores are optimistic. Use `test_data.csv` for a fair evaluation.
 
 ## Running locally

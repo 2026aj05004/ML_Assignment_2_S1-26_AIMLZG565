@@ -10,25 +10,27 @@ import csv
 import json
 from pathlib import Path
 
+import altair as alt
 import joblib
 import pandas as pd
 import streamlit as st
+from sklearn.metrics import confusion_matrix
 
-from data_loader import CLASSES, TARGET, UploadError, validate_upload
+from data_loader import CLASSES, DISPLAY_NAMES, TARGET, UploadError, validate_upload
 from metrics import (
     METRIC_NAMES,
     classification_report_frame,
     compute_metrics,
-    confusion_matrix_figure,
 )
 
 ROOT = Path(__file__).parent
 MODEL_DIR = ROOT / "model"
 BUNDLED_CSV = ROOT / "test_data.csv"
+DICTIONARY_JSON = ROOT / "data" / "feature_dictionary.json"
 REPO_URL = "https://github.com/2026aj05004/ML_Assignment_2_S1-26_AIMLZG565"
 UCI_URL = "https://archive.ics.uci.edu/dataset/697/predict+students+dropout+and+academic+success"
 
-st.set_page_config(page_title="Student Outcome Classifier", layout="wide")
+st.set_page_config(page_title="Students' Dropout and Academic Success", layout="wide")
 
 
 @st.cache_resource
@@ -64,49 +66,104 @@ def best_model_sentence(f1: pd.Series) -> str:
     return f"Best on this file by macro F1: **{best}** ({s1:.4f}), ahead of {second} ({s2:.4f})."
 
 
-meta, models = load_models()
+@st.cache_data
+def load_dictionary():
+    """Variable descriptions and code meanings from UCI (data/feature_dictionary.json)."""
+    variables = json.loads(DICTIONARY_JSON.read_text())["variables"]
+    return {v["column"]: v for v in variables}
 
-st.title("Student outcome classifier")
+
+def decode(df: pd.DataFrame, dictionary: dict) -> pd.DataFrame:
+    """Replace integer codes with their UCI labels, for display only."""
+    out = df.copy()
+    for col in out.columns:
+        codes = dictionary.get(col, {}).get("codes")
+        if codes:
+            out[col] = out[col].map(lambda v: codes.get(str(int(v)), f"code {v}"))
+    return out
+
+
+def confusion_matrix_chart(y_true, y_pred, classes):
+    """Confusion-matrix heatmap as an Altair chart, so it follows the light/dark theme.
+
+    Cell text switches to white on dark cells, which keeps it readable in both themes.
+    """
+    cm = confusion_matrix(y_true, y_pred, labels=list(classes))
+    cells = pd.DataFrame(
+        [(a, p, int(cm[i, j])) for i, a in enumerate(classes) for j, p in enumerate(classes)],
+        columns=["Actual", "Predicted", "Students"],
+    )
+    base = alt.Chart(cells).encode(
+        x=alt.X("Predicted:N", sort=list(classes), axis=alt.Axis(labelAngle=0)),
+        y=alt.Y("Actual:N", sort=list(classes)),
+    )
+    heat = base.mark_rect().encode(
+        color=alt.Color("Students:Q", scale=alt.Scale(scheme="blues"), legend=None),
+        tooltip=["Actual", "Predicted", "Students"],
+    )
+    text = base.mark_text(fontSize=15).encode(
+        text="Students:Q",
+        color=alt.condition(
+            alt.datum.Students > cells["Students"].max() / 2, alt.value("white"), alt.value("black")
+        ),
+    )
+    return (heat + text).properties(height=300)
+
+
+meta, models = load_models()
+dictionary = load_dictionary()
+
+st.title("Predict Students' Dropout and Academic Success")
 st.caption(
-    "Predicts whether a university student will **drop out**, **still be enrolled** or "
-    "**graduate**, and lets you check how five trained models perform on labelled data."
+    "Five classifiers trained on UCI dataset #697 predict whether a university student will "
+    "**drop out**, **still be enrolled** or **graduate**. Check how they perform on labelled data."
 )
 
 # ---------------------------------------------------------------- about (top of page)
 with st.expander("About the dataset", expanded=True):
-    data_col, class_col, use_col = st.columns([5, 3, 4], gap="large")
+    st.markdown(
+        f"""
+**Why it exists.** The dataset comes from a project at a higher-education institution in
+Portugal that aimed to **reduce academic dropout and failure** by using machine learning to
+spot students at risk early in their studies, so that support could be put in place.
+Each row is one student, enrolled in degrees such as agronomy, design, education, nursing,
+journalism, management, social service and technologies. The data was combined from several
+separate institutional databases, cleaned of anomalies and outliers by its authors, and has
+**no missing values**. Source: [UCI dataset #697]({UCI_URL}) (CC BY 4.0).
+"""
+    )
+    data_col, class_col, use_col = st.columns([5, 4, 4], gap="large")
     with data_col:
         st.markdown(
-            f"""
-**What it is.** Records of **4,424 students** from a higher-education institution in
-Portugal, across degrees such as nursing, management, design, social service and
-agronomy ([UCI dataset #697]({UCI_URL}), CC BY 4.0).
-
+            """
 **36 features per student**, in five groups:
-- **Enrolment and background**: course, application mode, previous qualification,
-  admission grade, age, nationality, gender, ...
+- **Enrolment and background**: course, application mode and order, previous
+  qualification and grade, admission grade, age, nationality, gender, ...
 - **Family**: each parent's qualification and occupation
 - **Financial**: tuition fees up to date, debtor, scholarship holder
-- **First-year results**: units enrolled, evaluated and approved, and the average grade,
-  for each of the two semesters
+- **First-year results**: units credited, enrolled, evaluated and approved, and the
+  average grade, for each of the two semesters
 - **Economy**: unemployment rate, inflation rate and GDP
 
-Most columns are numeric codes (for example `Course = 9500` is Nursing). The nationality
-column is spelled *Nacionality*, as in the original dataset, so raw UCI files work unchanged.
+Many columns are numeric codes (for example `Course = 9500` is Nursing). The
+**Feature dictionary** below explains every column and code.
 """
         )
     with class_col:
-        st.markdown("**What is predicted**: the outcome at the end of the normal course duration")
-        st.dataframe(
-            pd.DataFrame(
-                {"students": [1421, 794, 2209], "share": ["32.1%", "17.9%", "49.9%"]},
-                index=pd.Index(CLASSES, name="Outcome"),
-            ),
-            width="stretch",
-        )
-        st.caption(
-            "*Enrolled* means still studying after the normal duration. It is the smallest "
-            "class and the hardest to predict."
+        # A markdown table (not st.dataframe) so it wraps instead of clipping in a narrow column.
+        st.markdown(
+            """
+**What is predicted**: the outcome at the end of the normal course duration
+
+| Outcome | Students | Share |
+|---|---:|---:|
+| Dropout | 1,421 | 32.1% |
+| Enrolled | 794 | 17.9% |
+| Graduate | 2,209 | 49.9% |
+
+*Enrolled* means still studying after the normal duration. It is the smallest class and
+the hardest to predict.
+"""
         )
     with use_col:
         st.markdown(
@@ -117,11 +174,44 @@ That still leaves time for a student-support office to contact students at risk.
 
 **Using this app**
 1. Pick a model in the sidebar.
-2. Keep the bundled `test_data.csv` (885 students held out from training), or upload
-   your own labelled CSV with the same columns.
+2. Keep the bundled `test_data.csv` (885 students held out from training, the 80/20
+   split the dataset's authors recommend), or upload your own labelled CSV.
 3. Read the metrics and confusion matrix, or compare all five models.
 """
         )
+
+with st.expander("Feature dictionary: what every column means"):
+    rows = []
+    for col, v in dictionary.items():
+        codes = v["codes"]
+        if codes and len(codes) > 2:  # long code lists: one example, full list in the lookup below
+            code, label = next(iter(codes.items()))
+            meaning = f"{len(codes)} coded categories, e.g. {code} = {label}"
+        elif codes:
+            meaning = " / ".join(f"{k} = {lab}" for k, lab in codes.items())
+        else:
+            meaning = v["description"]
+        rows.append({"Column": col, "Group": v["group"], "Meaning": meaning})
+    st.dataframe(
+        pd.DataFrame(rows), hide_index=True, width="stretch",
+        column_config={
+            "Column": st.column_config.TextColumn(width="medium"),
+            "Group": st.column_config.TextColumn(width="medium"),
+            "Meaning": st.column_config.TextColumn(width="large"),
+        },
+    )
+    coded = [c for c, v in dictionary.items() if v["codes"] and len(v["codes"]) > 2]
+    pick = st.selectbox("Look up all codes for a column", coded,
+                        format_func=lambda c: DISPLAY_NAMES.get(c, c))
+    st.dataframe(
+        pd.DataFrame(list(dictionary[pick]["codes"].items()), columns=["Code", "Meaning"]),
+        hide_index=True, width="stretch",
+    )
+    st.caption(
+        "Descriptions and codes as published by UCI, with typos corrected. The nationality "
+        "column is spelled *Nacionality*, as in the original dataset, so raw UCI files work "
+        "unchanged."
+    )
 
 with st.expander("How the metrics are defined"):
     st.markdown(
@@ -200,7 +290,10 @@ with tab_eval:
     left, right = st.columns([3, 1])
     with left:
         st.markdown(f"**Preview** ({len(X)} rows)")
-        st.dataframe(X.assign(**{TARGET: y}).head(10), hide_index=True)
+        preview = X.assign(**{TARGET: y}).head(10)
+        if st.toggle("Show code meanings instead of numbers", value=True):
+            preview = decode(preview, dictionary)
+        st.dataframe(preview, hide_index=True)
     with right:
         st.markdown("**True class counts**")
         counts = y.value_counts().reindex(CLASSES, fill_value=0).rename("rows")
@@ -218,7 +311,7 @@ with tab_eval:
     cm_col, report_col = st.columns(2)
     with cm_col:
         st.markdown("**Confusion matrix**")
-        st.pyplot(confusion_matrix_figure(y, y_pred, CLASSES), width="content")
+        st.altair_chart(confusion_matrix_chart(y, y_pred, CLASSES), width="stretch")
     with report_col:
         st.markdown("**Classification report**")
         st.dataframe(classification_report_frame(y, y_pred, CLASSES))
