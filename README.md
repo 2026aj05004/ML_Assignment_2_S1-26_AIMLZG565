@@ -76,9 +76,8 @@ metrics.py            six metrics, confusion-matrix figure, classification repor
 model/                5 saved pipelines (*.joblib), metadata.json, metrics.json
 data/                 feature_dictionary.json: UCI column descriptions and code meanings
 test_data.csv         20% hold-out test set (885 rows, 36 features + Target)
-notebooks/            EDA and training walkthrough
-requirements.txt      pinned packages the app needs
-requirements-dev.txt  adds Jupyter for the notebook
+notebooks/            EDA and training walkthrough (runs in any Jupyter environment)
+requirements.txt      pinned packages for the app and the notebook
 ```
 
 ## d. Models used
