@@ -48,6 +48,9 @@ METRIC_HELP = {
            "fair when the groups have very different sizes.",
 }
 
+# On-screen names: say "macro" outright so the averaging is clear without a tooltip.
+METRIC_LABELS = {"Precision": "Macro precision", "Recall": "Macro recall", "F1": "Macro F1"}
+
 MODEL_HELP = {
     "Logistic Regression": "Gives each feature a weight and turns the weighted total into a "
                            "probability for each outcome. Simple, fast and easy to explain.",
@@ -163,11 +166,13 @@ dictionary = load_dictionary()
 st.title("Predict Students' Dropout and Academic Success")
 st.caption(
     "Five machine-learning models predict whether a university student will **drop out**, "
-    "**still be enrolled** or **graduate**. See how well each one does on real student records."
+    "**still be enrolled** or **graduate**. Data: 4,424 students at a Portuguese university, "
+    "36 features each, predicted at the end of the first year "
+    f"([UCI dataset #697]({UCI_URL}))."
 )
 
-# ---------------------------------------------------------------- about (top of page)
-with st.expander("About the dataset", expanded=True):
+# ---------------------------------------------------------------- explanations (collapsed)
+with st.expander("About the dataset"):
     data_col, class_col, use_col = st.columns([5, 4, 4], gap="large")
     with data_col:
         st.markdown(
@@ -213,7 +218,7 @@ That still leaves time for a student-support office to contact students at risk.
 
 **Using this app**
 1. Pick a model in the sidebar.
-2. Keep the bundled test file (885 students the models never saw during training), or
+2. Keep the sample test data (885 students the models never saw during training), or
    upload your own CSV with the same columns and a known outcome for each student.
 3. Read the scores and the confusion matrix, or compare all five models.
 """
@@ -255,8 +260,9 @@ with st.expander("Feature dictionary: what every column means"):
 with st.expander("How the scores work"):
     st.markdown(
         "All scores are computed on the students in the file you evaluate. Hover over the "
-        "ⓘ next to any score for the same explanation.\n\n"
-        + "\n".join(f"- **{name}**: {text}" for name, text in METRIC_HELP.items())
+        "**?** next to any score for the same explanation.\n\n"
+        + "\n".join(f"- **{METRIC_LABELS.get(name, name)}**: {text}"
+                    for name, text in METRIC_HELP.items())
         + f"""
 
 Precision, Recall and F1 are **macro averages**: each outcome group counts equally, however
@@ -278,31 +284,40 @@ with st.sidebar:
         "Model", list(models),
         help="All five were trained on the same students and tuned the same way.",
     )
-    st.caption(MODEL_HELP[model_name])
-    params = meta["best_params"][model_name]
-    st.caption(
-        "Tuned settings: " + ", ".join(f"`{k} = {v}`" for k, v in params.items()),
-        help="Chosen automatically by testing a few values on the training students.\n\n"
-             + "\n\n".join(PARAM_HELP[k] for k in params),
-    )
+    st.caption(MODEL_HELP[model_name].split(". ")[0].rstrip(".") + ".")
+    with st.expander("Model details"):
+        st.markdown(MODEL_HELP[model_name])
+        params = meta["best_params"][model_name]
+        st.markdown(
+            "Tuned settings: " + ", ".join(f"`{k} = {v}`" for k, v in params.items()),
+            help="Chosen automatically by testing a few values on the training students.\n\n"
+                 + "\n\n".join(PARAM_HELP[k] for k in params),
+        )
 
     st.header("2. Provide test data")
-    use_bundled = st.checkbox(
-        "Use bundled test_data.csv", value=True,
-        help="885 students (20% of the data) set aside before training, keeping the same mix "
-             "of outcomes. The models never saw them, so this is a fair test.",
+    data_source = st.radio(
+        "Data source", ["Sample test data", "Upload CSV"],
+        help="Sample test data: 885 students (20% of the data) set aside before training, "
+             "keeping the same mix of outcomes. The models never saw them, so this is a fair test.",
     )
-    uploaded = st.file_uploader(
-        "...or upload your own CSV", type="csv", disabled=use_bundled,
-        help=f"Needs the 36 feature columns and a '{TARGET}' column "
-             f"({', '.join(CLASSES)}). Comma- or semicolon-separated.",
+    uploaded = None
+    if data_source == "Upload CSV":
+        uploaded = st.file_uploader(
+            "CSV file", type="csv",
+            help=f"Needs the 36 feature columns and a '{TARGET}' column "
+                 f"({', '.join(CLASSES)}). Comma- or semicolon-separated.",
+        )
+    st.download_button(
+        "Download sample CSV", BUNDLED_CSV.read_bytes(), file_name=BUNDLED_CSV.name,
+        mime="text/csv", icon=":material/download:",
+        help="The same 885 students as the sample test data, to try the upload option.",
     )
 
 # ---------------------------------------------------------------- load + validate
-if use_bundled:
+if data_source == "Sample test data":
     source_name, raw = BUNDLED_CSV.name, pd.read_csv(BUNDLED_CSV)
 elif uploaded is None:
-    st.info("Upload a CSV in the sidebar, or tick **Use bundled test_data.csv**.")
+    st.info("Upload a CSV in the sidebar, or choose **Sample test data**.")
     st.stop()
 else:
     source_name = uploaded.name
@@ -326,39 +341,35 @@ except UploadError as exc:
     st.error(str(exc))
     st.stop()
 
-for msg in infos:
-    st.info(msg)
+# Missing classes change how the scores read, so they stay prominent; routine notes
+# (extra columns, unseen category codes) are collapsed so the results come first.
 for msg in warnings:
     st.warning(msg)
+if infos:
+    with st.expander(f"Notes about this file ({len(infos)})", icon=":material/info:"):
+        for msg in infos:
+            st.markdown(f"- {msg}")
 
 tab_eval, tab_compare = st.tabs(["Evaluate selected model", "Compare all models"])
 
 # ---------------------------------------------------------------- tab 1
 with tab_eval:
-    st.subheader(f"{model_name} on {source_name}")
-
-    # Headings (and the toggle) share one row so the two tables below start level.
-    head_left, head_toggle, head_right = st.columns([2, 2, 2], vertical_alignment="center")
-    head_left.markdown(f"**Preview**: first 10 of {len(X)} students")
-    show_meanings = head_toggle.toggle("Show code meanings", value=True,
-                                       help="Show labels such as *Nursing* instead of codes such as 9500.")
-    head_right.markdown("**Actual outcomes** in this file")
-    left, right = st.columns([4, 2])
-    preview = X.assign(**{TARGET: y}).head(10)
-    left.dataframe(decode(preview, dictionary) if show_meanings else preview, hide_index=True)
-    counts = y.value_counts().reindex(CLASSES, fill_value=0).rename("Students")
-    right.dataframe(counts.rename_axis("Outcome"), width="stretch")
+    counts = y.value_counts().reindex(CLASSES, fill_value=0)
+    st.markdown(
+        f"**{model_name}** on `{source_name}`: {len(X)} students "
+        f"({' · '.join(f'{n} {c}' for c, n in counts.items())})"
+    )
 
     y_pred, m = evaluate(models[model_name], X, y)
 
-    # Two rows of three so 4-decimal scores fit at laptop widths: overall scores first,
-    # then the per-group (macro) averages.
-    for row in (["Accuracy", "AUC", "MCC"], ["Precision", "Recall", "F1"]):
+    # Two rows of three so 4-decimal scores fit at laptop widths. Macro F1, the main
+    # comparison score, comes first.
+    for row in (["F1", "Accuracy", "AUC"], ["Precision", "Recall", "MCC"]):
         for card, name in zip(st.columns(3), row):
             help_text = METRIC_HELP[name]
             if name == "AUC" and m["AUC"] is None:
                 help_text += f"\n\nNot available here: {m['auc_note']}."
-            card.metric(name, fmt(m[name]), help=help_text, border=True)
+            card.metric(METRIC_LABELS.get(name, name), fmt(m[name]), help=help_text, border=True)
     if m["AUC"] is None:
         st.caption(f"AUC n/a: {m['auc_note']}.")
 
@@ -383,9 +394,17 @@ with tab_eval:
                            for c in ["precision", "recall", "f1-score"]},
         )
 
-    st.markdown(
-        """
-**Reading the matrix.** Rows are the true outcome, columns the prediction.
+    with st.expander("View test data"):
+        show_meanings = st.toggle("Show code meanings", value=True,
+                                  help="Show labels such as *Nursing* instead of codes such as 9500.")
+        preview = X.assign(**{TARGET: y}).head(10)
+        st.caption(f"First 10 of {len(X)} students")
+        st.dataframe(decode(preview, dictionary) if show_meanings else preview, hide_index=True)
+
+    with st.expander("How to read the confusion matrix"):
+        st.markdown(
+            """
+Rows are the true outcome, columns the prediction.
 - *Dropout* row, predicted *Graduate*: at-risk students the model misses, the costliest error
   for a student-support office, because these students would get no outreach.
 - *Enrolled* is the smallest class (about 18% of students) and sits between the other two:
@@ -395,7 +414,7 @@ with tab_eval:
 - *Graduate* predicted as *Dropout* costs less: an unneeded check-in with a student who was
   doing well.
 """
-    )
+        )
 
 # ---------------------------------------------------------------- tab 2
 with tab_compare:
@@ -404,10 +423,11 @@ with tab_compare:
     table = pd.DataFrame(rows).T[METRIC_NAMES]
     st.dataframe(
         table.map(fmt), width="stretch",
-        column_config={n: st.column_config.TextColumn(n, help=METRIC_HELP[n]) for n in METRIC_NAMES},
+        column_config={n: st.column_config.TextColumn(METRIC_LABELS.get(n, n), help=METRIC_HELP[n])
+                       for n in METRIC_NAMES},
     )
 
-    st.markdown("**F1 by model** (the main score used to compare them)",
+    st.markdown("**Macro F1 by model** (the main score used to compare them)",
                 help=METRIC_HELP["F1"])
     f1 = table["F1"].astype(float).rename_axis("Model").reset_index()
     # horizontal=True swaps the axes, so x/y here still mean category/value.
